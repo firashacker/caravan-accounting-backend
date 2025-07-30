@@ -1,0 +1,32 @@
+{
+  "name": "caravan-accounting-backend",
+  "version": "1.0.0",
+  "description": "accounting program backend made for caravan Co ",
+  "keywords": [
+    "finance",
+    "market"
+  ],
+  "license": "MIT",
+  "author": "firastom0@gmail.com",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server --host",
+    "build": "npm install && npx prisma generate && npx prisma db push",
+    "start": "node server"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prisma": "^6.9.0"
+  }
+}
