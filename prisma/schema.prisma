@@ -17,3 +17,68 @@ model User {
   password     String
   refreshtoken String   @default("")
 }
+
+model Employee {
+  id            Int       @id @default(autoincrement())
+  name          String
+  paymentMethod String
+  paymentAmount Float     @default(0)
+  paymentUnits  Int       @default(0)
+  balance       Float     @default(0)
+  payments      Expense[]
+
+  @@unique([name, paymentMethod])
+}
+
+model Client {
+  id       Int      @id @default(autoincrement())
+  name     String   @unique
+  debits   Debit[]
+  payments Income[]
+}
+
+model Trader {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  debts    Debt[]
+  payments Expense[]
+}
+
+model Debit {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  amount      Float
+  description String
+  Client      Client?  @relation(fields: [clientId], references: [id])
+  clientId    Int?
+}
+
+model Debt {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  amount      Float
+  description String
+  Trader      Trader?  @relation(fields: [traderId], references: [id])
+  traderId    Int?
+}
+
+model Expense {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  amount      Float
+  description String
+  employees   Boolean   @default(false)
+  Trader      Trader?   @relation(fields: [traderId], references: [id])
+  traderId    Int?
+  Employee    Employee? @relation(fields: [employeeId], references: [id])
+  employeeId  Int?
+}
+
+model Income {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  amount      Float
+  description String
+  Client      Client?  @relation(fields: [clientId], references: [id])
+  clientId    Int?
+}
