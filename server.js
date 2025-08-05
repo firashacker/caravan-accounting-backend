@@ -37,187 +37,6 @@ app.use(cors(corsOptions));
 });
 */
 
-//Employees
-app.post("/api/employee", async (req, res) => {
-  try {
-    const employee = req.body;
-    console.log(employee);
-    if (
-      employee.paymentMethod !== "dayly" &&
-      employee.paymentMethod !== "weekly" &&
-      employee.paymentMethod !== "monthly"
-    )
-      throw { error: "Invalid Input!" };
-    const res1 = await prisma.employee.create({ data: employee });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json(error);
-  }
-});
-app.put("/api/employee", async (req, res) => {
-  try {
-    const employee = req.body;
-    console.log(employee);
-    if (
-      employee.paymentMethod !== "dayly" &&
-      employee.paymentMethod !== "weekly" &&
-      employee.paymentMethod !== "monthly"
-    )
-      throw { error: "Invalid Input!" };
-    const res1 = await prisma.employee.update({
-      where: { id: employee.id },
-      data: employee,
-    });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json(error);
-  }
-});
-app.get("/api/employee", async (req, res) => {
-  try {
-    const employees = await prisma.employee.findMany();
-    setTimeout(() => res.status(200).json(employees), 500);
-  } catch (error) {
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Clients
-app.post("/api/client", async (req, res) => {
-  try {
-    const client = req.body;
-    console.log(client);
-    const res1 = await prisma.client.create({ data: client });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/client", async (req, res) => {
-  try {
-    const clients = await prisma.client.findMany();
-    res.status(200).json(clients);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Traders
-app.post("/api/trader", async (req, res) => {
-  try {
-    const trader = req.body;
-    console.log(trader);
-    const res1 = await prisma.trader.create({ data: trader });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/trader", async (req, res) => {
-  try {
-    const traders = await prisma.trader.findMany();
-    res.status(200).json(traders);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Debits
-app.post("/api/debit", async (req, res) => {
-  try {
-    const debit = req.body;
-    console.log(debit);
-    const res1 = await prisma.debit.create({ data: debit });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/debits", async (req, res) => {
-  try {
-    const debits = await prisma.debit.findMany();
-    res.status(200).json(debits);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Debts
-app.post("/api/debt", async (req, res) => {
-  try {
-    const debt = req.body;
-    console.log(debt);
-    const res1 = await prisma.debt.create({ data: debt });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/debt", async (req, res) => {
-  try {
-    const debts = await prisma.debt.findMany();
-    res.status(200).json(debts);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Incomes
-app.post("/api/income", async (req, res) => {
-  try {
-    const income = req.body;
-    console.log(income);
-    const res1 = await prisma.income.create({ data: income });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/income", async (req, res) => {
-  try {
-    const income = await prisma.income.findMany();
-    res.status(200).json(income);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//Expenses
-app.post("/api/expense", async (req, res) => {
-  try {
-    const expense = req.body;
-    console.log(expense);
-    const res1 = await prisma.expense.create({ data: expense });
-    res.status(200).json(res1);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-app.get("/api/expense", async (req, res) => {
-  try {
-    const expenses = await prisma.expense.findMany();
-    res.status(200).json(expenses);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json("Error: server Error!");
-  }
-});
-
-//app.post("/api/employee", async (req, res) => {});
-
 //
 //
 // Auth
@@ -258,6 +77,212 @@ const verify = (req, res, next) => {
     res.status(401).json("You are not authenticated!");
   }
 };
+
+// Verify token middleware
+const verifyAdmin = (req, res, next) => {
+  const token = req.cookies["token"];
+
+  if (token) {
+    jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
+      if (err) {
+        return res.status(403).json("Token is not valid!");
+      }
+
+      if (user.isAdmin !== true)
+        return res.status(401).json("You are not Admin!");
+      req.user = user;
+      next();
+    });
+  } else {
+    res.status(401).json("You are not authenticated!");
+  }
+};
+
+//Employees
+app.post("/api/employee", verifyAdmin, async (req, res) => {
+  try {
+    const employee = req.body;
+    console.log(employee);
+    if (
+      employee.paymentMethod !== "dayly" &&
+      employee.paymentMethod !== "weekly" &&
+      employee.paymentMethod !== "monthly"
+    )
+      throw { error: "Invalid Input!" };
+    const res1 = await prisma.employee.create({ data: employee });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json(error);
+  }
+});
+app.put("/api/employee", verifyAdmin, async (req, res) => {
+  try {
+    const employee = req.body;
+    console.log(employee);
+    if (
+      employee.paymentMethod !== "dayly" &&
+      employee.paymentMethod !== "weekly" &&
+      employee.paymentMethod !== "monthly"
+    )
+      throw { error: "Invalid Input!" };
+    const res1 = await prisma.employee.update({
+      where: { id: employee.id },
+      data: employee,
+    });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json(error);
+  }
+});
+app.get("/api/employee", verify, async (req, res) => {
+  try {
+    const employees = await prisma.employee.findMany();
+    setTimeout(() => res.status(200).json(employees), 500);
+  } catch (error) {
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Clients
+app.post("/api/client", verifyAdmin, async (req, res) => {
+  try {
+    const client = req.body;
+    console.log(client);
+    const res1 = await prisma.client.create({
+      data: client,
+      include: {
+        debits: true,
+      },
+    });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/client", verify, async (req, res) => {
+  try {
+    const clients = await prisma.client.findMany();
+    res.status(200).json(clients);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Traders
+app.post("/api/trader", verifyAdmin, async (req, res) => {
+  try {
+    const trader = req.body;
+    console.log(trader);
+    const res1 = await prisma.trader.create({ data: trader });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/trader", verify, async (req, res) => {
+  try {
+    const traders = await prisma.trader.findMany();
+    res.status(200).json(traders);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Debits
+app.post("/api/debit", verifyAdmin, async (req, res) => {
+  try {
+    const debit = req.body;
+    console.log(debit);
+    const res1 = await prisma.debit.create({ data: debit });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/debits", verify, async (req, res) => {
+  try {
+    const debits = await prisma.debit.findMany();
+    res.status(200).json(debits);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Debts
+app.post("/api/debt", verifyAdmin, async (req, res) => {
+  try {
+    const debt = req.body;
+    console.log(debt);
+    const res1 = await prisma.debt.create({ data: debt });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/debt", verify, async (req, res) => {
+  try {
+    const debts = await prisma.debt.findMany();
+    res.status(200).json(debts);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Incomes
+app.post("/api/income", verify, async (req, res) => {
+  try {
+    const income = req.body;
+    console.log(income);
+    const res1 = await prisma.income.create({ data: income });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/income", verify, async (req, res) => {
+  try {
+    const income = await prisma.income.findMany();
+    res.status(200).json(income);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//Expenses
+app.post("/api/expense", verifyAdmin, async (req, res) => {
+  try {
+    const expense = req.body;
+    console.log(expense);
+    const res1 = await prisma.expense.create({ data: expense });
+    res.status(200).json(res1);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/expense", verify, async (req, res) => {
+  try {
+    const expenses = await prisma.expense.findMany();
+    res.status(200).json(expenses);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error: server Error!");
+  }
+});
+
+//app.post("/api/employee", async (req, res) => {});
 
 // Sign in
 app.post("/api/login", async (req, res) => {
