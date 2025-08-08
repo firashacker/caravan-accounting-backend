@@ -4,13 +4,13 @@ const port = process.env.SERVER_PORT || 3000; // Use environment variable or def
 const publicDirs = [process.env.IMAGES_DIR || "./uploaded"]; // Use environment variables or default to 'public' and 'public2'
 //const mainIndex = `${publicDirs[1]}/index.html`;
 const bodyParser = require("body-parser");
-const fs = require("fs");
+//const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { PrismaClient } = require("./generated/prisma");
 const prisma = new PrismaClient();
-
+const defaultResLength = 12;
 // Configure Express app
 app.use(bodyParser.json(), cookieParser());
 
@@ -144,6 +144,19 @@ app.get("/api/employee", verify, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
+app.get("/api/employee/:id", verify, async (req, res) => {
+  const employeeId = Number(req.params.id);
+  try {
+    const employees = await prisma.employee.findUnique({
+      where: {
+        id: employeeId,
+      },
+    });
+    res.status(200).json(employees);
+  } catch (error) {
+    res.status(500).json("Error: server Error!");
+  }
+});
 
 //Clients
 app.post("/api/client", verifyAdmin, async (req, res) => {
@@ -228,13 +241,82 @@ app.post("/api/debt", verifyAdmin, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/debt", verify, async (req, res) => {
+app.get("/api/debt/:target/:id/list/:from?", verify, async (req, res) => {
+  const stringFrom = req.params.from || 0;
+  const target = req.params.target;
+  const stringId = req.params.id;
   try {
-    const debts = await prisma.debt.findMany();
+    if (target !== "trader" && target !== "all")
+      throw { status: 404, message: "route target not found !" };
+    if (isNaN(stringId) && stringId !== "all")
+      throw { status: 404, message: "route id not found !" };
+    const id = parseInt(stringId);
+    if (isNaN(stringFrom))
+      throw { status: 404, message: "route from not found !" };
+    const from = parseInt(stringFrom);
+
+    const resolveTarget = () => {
+      if (stringId !== "all") {
+        if (target === "all")
+          throw { status: 404, message: "route not found !" };
+        //handle extra casses in case of multiple relations
+        //if (target === "trader") return { traderId: id };
+        //else return { employeeId: id };
+        return { traderId: id };
+      } else {
+        return {};
+      }
+    };
+    const query = resolveTarget();
+    const debts = await prisma.debt.findMany({
+      where: query,
+      take: Number(from + defaultResLength),
+      skip: from,
+      orderBy: {
+        id: "desc",
+      },
+    });
     res.status(200).json(debts);
   } catch (error) {
     console.log(error);
-    res.status(500).json("Error: server Error!");
+    if (error.status) res.status(error.status).json(error.message);
+    else res.status(500).json("Error: server Error!");
+  }
+});
+app.get("/api/debt/:target/:id/sum", verify, async (req, res) => {
+  const target = req.params.target;
+  const stringId = req.params.id;
+  try {
+    if (target !== "trader" && target !== "all")
+      throw { status: 404, message: "route target not found !" };
+    if (isNaN(stringId) && stringId !== "all")
+      throw { status: 404, message: "route id not found !" };
+    const id = parseInt(stringId);
+
+    const resolveTarget = () => {
+      if (stringId !== "all") {
+        if (target === "all")
+          throw { status: 404, message: "route not found !" };
+        //handle extra casses in case of multiple relations
+        //if (target === "trader") return { traderId: id };
+        //else return { employeeId: id };
+        return { traderId: id };
+      } else {
+        return {};
+      }
+    };
+    const query = resolveTarget();
+    const sum = (
+      await prisma.debt.aggregate({
+        where: query,
+        _sum: { amount: true },
+      })
+    )._sum.amount;
+    res.status(200).json({ amount: Number(sum) });
+  } catch (error) {
+    console.log(error);
+    if (error.status) res.status(error.status).json(error.message);
+    else res.status(500).json("Error: server Error!");
   }
 });
 
@@ -272,16 +354,79 @@ app.post("/api/expense", verifyAdmin, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/expense", verify, async (req, res) => {
+app.get("/api/expense/:target/:id/list/:from?", verify, async (req, res) => {
+  const stringFrom = req.params.from || 0;
+  const target = req.params.target;
+  const stringId = req.params.id;
   try {
-    const expenses = await prisma.expense.findMany();
+    if (target !== "trader" && target !== "employee" && target !== "all")
+      return res.status(404).json("route target not found !");
+    if (isNaN(stringId) && stringId !== "all")
+      return res.status(404).json("route id not found !");
+    const id = parseInt(stringId);
+    if (isNaN(stringFrom)) return res.status(404).json("route id not found !");
+    const from = parseInt(stringFrom);
+
+    const resolveTarget = () => {
+      if (stringId !== "all") {
+        if (target === "all")
+          throw { status: 404, message: "route not found !" };
+        if (target === "employee") return { employeeId: id };
+        else return { traderId: id };
+      } else {
+        return {};
+      }
+    };
+    const query = resolveTarget();
+    const expenses = await prisma.expense.findMany({
+      where: query,
+      take: Number(from + defaultResLength),
+      skip: from,
+      orderBy: {
+        id: "desc",
+      },
+    });
     res.status(200).json(expenses);
   } catch (error) {
     console.log(error);
-    res.status(500).json("Error: server Error!");
+    if (error.status) res.status(error.status).json(error.message);
+    else res.status(500).json("Error: server Error!");
   }
 });
+app.get("/api/expense/:target/:id/sum", verify, async (req, res) => {
+  const target = req.params.target;
+  const stringId = req.params.id;
+  try {
+    if (target !== "trader" && target !== "employee" && target !== "all")
+      return res.status(404).json("route target not found !");
+    if (isNaN(stringId) && stringId !== "all")
+      return res.status(404).json("route id not found !");
+    const id = parseInt(stringId);
 
+    const resolveTarget = () => {
+      if (stringId !== "all") {
+        if (target === "all")
+          throw { status: 404, message: "route not found !" };
+        if (target === "employee") return { employeeId: id };
+        else return { traderId: id };
+      } else {
+        return {};
+      }
+    };
+    const query = resolveTarget();
+    const sum = (
+      await prisma.expense.aggregate({
+        where: query,
+        _sum: { amount: true },
+      })
+    )._sum.amount;
+    res.status(200).json({ amount: Number(sum) });
+  } catch (error) {
+    console.log(error);
+    if (error.status) res.status(error.status).json(error.message);
+    else res.status(500).json("Error: server Error!");
+  }
+});
 //app.post("/api/employee", async (req, res) => {});
 
 // Sign in
@@ -410,7 +555,7 @@ app.post("/api/refresh", async (req, res) => {
     process.env.SECRET_REFRESH_KEY,
     async (err, user) => {
       err && console.log(err); // log any errors
-
+      /*
       // get user refresh token from database
       const userToken = await prisma.user.findUnique({
         where: {
@@ -425,20 +570,20 @@ app.post("/api/refresh", async (req, res) => {
       // compare the tow tokens to check if the  token valid
       if (refreshToken !== validToken)
         return res.status(403).json("Refresh token is not valid!"); // return error if they didn't match
-
+        */
       // create new tokens if every thing is ok
       const payload = GeneratePayload(user);
       const newAccessToken = GenerateAccessToken(payload);
       const newRefreshToken = GenerateRefreshToken(payload);
       // update the database with the new refreshToken
-      await prisma.user.update({
+      /*await prisma.user.update({
         where: {
           id: user.id,
         },
         data: {
           refreshtoken: newRefreshToken,
         },
-      });
+      });*/
       // send new tokens to client
       try {
         res.cookie("token", newAccessToken, {
