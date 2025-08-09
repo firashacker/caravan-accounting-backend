@@ -31,6 +31,12 @@ model Employee {
   @@unique([name, paymentMethod])
 }
 
+model Investor {
+  id       Int       @id @default(autoincrement())
+  name     String
+  expenses Expense[]
+}
+
 model Client {
   id       Int      @id @default(autoincrement())
   name     String   @unique
@@ -68,11 +74,12 @@ model Expense {
   createdAt   DateTime  @default(now())
   amount      Float
   description String
-  employees   Boolean   @default(false)
   Trader      Trader?   @relation(fields: [traderId], references: [id])
   traderId    Int?
   Employee    Employee? @relation(fields: [employeeId], references: [id])
   employeeId  Int?
+  Investor    Investor? @relation(fields: [investorId], references: [id])
+  investorId  Int?
 }
 
 model Income {
