@@ -1,8 +1,8 @@
 const express = require("express");
 const app = express();
 const port = process.env.SERVER_PORT || 3000; // Use environment variable or default to 3000
-const publicDirs = [process.env.IMAGES_DIR || "./uploaded", "./dist"]; // Use environment variables or default to 'public' and 'public2'
-const mainIndex = `${publicDirs[1]}/index.html`;
+//const publicDirs = [process.env.IMAGES_DIR || "./uploaded", "./dist"]; // Use environment variables or default to 'public' and 'public2'
+//const mainIndex = `${publicDirs[1]}/index.html`;
 const bodyParser = require("body-parser");
 //const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -65,16 +65,20 @@ const GenerateRefreshToken = (user) => {
 const verify = (req, res, next) => {
   const token = req.cookies["token"];
 
-  if (token) {
-    jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
-      if (err) {
-        return res.status(403).json("Token is not valid!");
-      }
-      req.user = user;
-      next();
-    });
-  } else {
-    res.status(401).json("You are not authenticated!");
+  try {
+    if (token) {
+      jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
+        if (err) {
+          return res.status(403).json("Token is not valid!");
+        }
+        req.user = user;
+        next();
+      });
+    } else {
+      res.status(401).json("You are not authenticated!");
+    }
+  } catch (error) {
+    res.status(500).json("verification server Error");
   }
 };
 
@@ -82,19 +86,25 @@ const verify = (req, res, next) => {
 const verifyAdmin = (req, res, next) => {
   const token = req.cookies["token"];
 
-  if (token) {
-    jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
-      if (err) {
-        return res.status(403).json("Token is not valid!");
-      }
+  try {
+    if (token) {
+      jwt.verify(token, process.env.SECRET_KEY, async (err, user) => {
+        if (err) {
+          return res.status(403).json("Token is not valid!");
+        }
 
-      if (user.isAdmin !== true)
-        return res.status(401).json("You are not Admin!");
-      req.user = user;
-      next();
-    });
-  } else {
-    res.status(401).json("You are not authenticated!");
+        const isAdmin = (
+          await prisma.user.findUnique({ where: { username: user.username } })
+        ).isAdmin;
+        if (!isAdmin) return res.status(403).json("You are not Admin!");
+        req.user = user;
+        next();
+      });
+    } else {
+      res.status(401).json("You are not authenticated!");
+    }
+  } catch (error) {
+    res.status(500).json("admin verification server Error");
   }
 };
 
@@ -139,7 +149,7 @@ app.put("/api/employee", verifyAdmin, async (req, res) => {
 app.get("/api/employee", verify, async (req, res) => {
   try {
     const employees = await prisma.employee.findMany();
-    setTimeout(() => res.status(200).json(employees), 500);
+    res.status(200).json(employees);
   } catch (error) {
     res.status(500).json("Error: server Error!");
   }
@@ -259,7 +269,9 @@ app.get("/api/debit/:target/:id/:method/:from?", async (req, res) => {
         case "all": {
           switch (target) {
             case "client":
-              return { clientId: !null };
+              return {
+                clientId: { not: null },
+              };
             case "all":
               return {};
             default:
@@ -342,7 +354,13 @@ app.get("/api/debt/:target/:id/:method/:from?", async (req, res) => {
         case "all": {
           switch (target) {
             case "trader":
-              return { traderId: !null };
+              return {
+                traderId: { not: null },
+              };
+            case "employee":
+              return {
+                employeeId: { not: null },
+              };
             case "all":
               return {};
             default:
@@ -353,6 +371,8 @@ app.get("/api/debt/:target/:id/:method/:from?", async (req, res) => {
           switch (target) {
             case "trader":
               return { traderId: id };
+            case "employee":
+              return { employeeId: id };
             default:
               throw { status: 404, message: "route not found !" };
           }
@@ -425,7 +445,9 @@ app.get("/api/income/:target/:id/:method/:from?", async (req, res) => {
         case "all": {
           switch (target) {
             case "client":
-              return { clientId: !null };
+              return {
+                clientId: { not: null },
+              };
             case "all":
               return {};
             default:
@@ -508,11 +530,13 @@ app.get("/api/expense/:target/:id/:method/:from?", async (req, res) => {
         case "all": {
           switch (target) {
             case "employee":
-              return { employeeId: !null };
+              return { employeeId: { not: null } };
             case "trader":
-              return { traderId: !null };
+              return { traderId: { not: null } };
             case "investor":
-              return { investorId: !null };
+              return { investorId: { not: null } };
+            case "work":
+              return { work: true };
             case "all":
               return {};
             default:
@@ -569,6 +593,31 @@ app.get("/api/expense/:target/:id/:method/:from?", async (req, res) => {
   }
 });
 
+app.post("/api/signup", verifyAdmin, async (req, res) => {
+  if (!req.body.username && !req.body.password)
+    return res.status(401).json({ error: "Invalid Username or Password" });
+  const { username, password, isAdmin = false } = req.body;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { username: username },
+    });
+    if (user)
+      return res.status(401).json({ error: "username already exsists" });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await prisma.user.create({
+      data: {
+        username: username,
+        isAdmin: isAdmin,
+        password: hashedPassword,
+      },
+    });
+    console.log(newUser);
+    res.status(200).json("user created successfully !");
+  } catch (error) {
+    res.status(500).json("failed to signUp !");
+  }
+});
+
 // Sign in
 app.post("/api/login", async (req, res) => {
   if (!req.body?.username || !req.body?.password)
@@ -596,15 +645,6 @@ app.post("/api/login", async (req, res) => {
       const accessToken = GenerateAccessToken(payload);
       const refreshToken = GenerateRefreshToken(payload);
 
-      await prisma.user.update({
-        where: {
-          id: newUser.id,
-        },
-        data: {
-          refreshtoken: refreshToken,
-        },
-      });
-
       res.cookie("token", accessToken, {
         httpOnly: true,
         Secure: true,
@@ -630,14 +670,6 @@ app.post("/api/login", async (req, res) => {
     const payload = GeneratePayload(user);
     const accessToken = GenerateAccessToken(payload);
     const refreshToken = GenerateRefreshToken(payload);
-    await prisma.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        refreshtoken: refreshToken,
-      },
-    });
 
     res.cookie("token", accessToken, {
       httpOnly: true,
@@ -653,62 +685,73 @@ app.post("/api/login", async (req, res) => {
 
 // Sign Out
 app.post("/api/logout", verify, async (req, res) => {
-  const token = req.cookies["token"];
-  if (token) {
-    res.cookie("token", "");
-  }
+  try {
+    const token = req.cookies["token"];
+    if (token) {
+      res.cookie("token", "");
+    }
 
-  res.status(200).json("Signed Out!");
+    res.status(200).json("Signed Out!");
+  } catch (error) {
+    res.status(500).json("server error");
+  }
 });
 
 // Refresh accessToken
 app.post("/api/refresh", async (req, res) => {
-  console.log("attempting Refresh");
-  // get refreshToken
-  const refreshToken = req.body.token;
-  //console.log(refreshToken);
+  try {
+    console.log("attempting Refresh");
+    // get refreshToken
+    const refreshToken = req.body.token;
+    //console.log(refreshToken);
 
-  //send error if theres no token
-  if (!refreshToken) return res.status(401).json("You are not authenticated!");
+    //send error if theres no token
+    if (!refreshToken)
+      return res.status(401).json("You are not authenticated!");
 
-  // verify token
-  jwt.verify(
-    refreshToken,
-    process.env.SECRET_REFRESH_KEY,
-    async (err, user) => {
-      err && console.log(err); // log any errors
+    // verify token
+    jwt.verify(
+      refreshToken,
+      process.env.SECRET_REFRESH_KEY,
+      async (err, user) => {
+        err && console.log(err); // log any errors
 
-      // create new tokens if every thing is ok
-      const payload = GeneratePayload(user);
-      const newAccessToken = GenerateAccessToken(payload);
-      const newRefreshToken = GenerateRefreshToken(payload);
-      // send new tokens to client
-      try {
-        res.cookie("token", newAccessToken, {
-          httpOnly: true,
-          Secure: true,
-          Partitioned: true,
-        });
-        res.status(200).json({ refreshToken: newRefreshToken, ...user });
-      } catch (error) {
-        console.error(error); // log any errors
-        res.status(500).json({ error: "Failed to authorize" });
-      }
-    },
-  );
+        // create new tokens if every thing is ok
+        const payload = GeneratePayload(user);
+        const newAccessToken = GenerateAccessToken(payload);
+        const newRefreshToken = GenerateRefreshToken(payload);
+        // send new tokens to client
+        try {
+          res.cookie("token", newAccessToken, {
+            httpOnly: true,
+            Secure: true,
+            Partitioned: true,
+          });
+          res.status(200).json({ refreshToken: newRefreshToken, ...user });
+        } catch (error) {
+          console.error(error); // log any errors
+          res.status(500).json({ error: "Failed to authorize" });
+        }
+      },
+    );
+  } catch (error) {
+    res.status(500).json("refresh Server Error");
+  }
 });
 
+/*
 const path = require("path");
 const { setTimeout } = require("timers");
 
 publicDirs.map((publicDir) => {
   app.use(express.static(publicDir));
-});
+});*/
 
-app.get("*", (req, res) => {
+/*app.get("*", (req, res) => {
   console.log(req.url);
   res.sendFile(path.join(__dirname, mainIndex));
 });
+*/
 
 app.listen(
   port,

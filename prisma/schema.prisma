@@ -23,9 +23,7 @@ model Employee {
   name          String
   paymentMethod String
   paymentAmount Float     @default(0)
-  paymentUnits  Int       @default(0)
-  extra         Float     @default(0)
-  balance       Float     @default(0)
+  balance       Debt[]
   payments      Expense[]
 
   @@unique([name, paymentMethod])
@@ -61,12 +59,14 @@ model Debit {
 }
 
 model Debt {
-  id          Int      @id @default(autoincrement())
-  createdAt   DateTime @default(now())
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
   amount      Float
   description String
-  Trader      Trader?  @relation(fields: [traderId], references: [id])
+  Trader      Trader?   @relation(fields: [traderId], references: [id])
   traderId    Int?
+  Employee    Employee? @relation(fields: [employeeId], references: [id])
+  employeeId  Int?
 }
 
 model Expense {
@@ -74,6 +74,7 @@ model Expense {
   createdAt   DateTime  @default(now())
   amount      Float
   description String
+  work        Boolean   @default(false)
   Trader      Trader?   @relation(fields: [traderId], references: [id])
   traderId    Int?
   Employee    Employee? @relation(fields: [employeeId], references: [id])
