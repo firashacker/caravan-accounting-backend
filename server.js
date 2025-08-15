@@ -251,7 +251,7 @@ app.post("/api/debit", verifyAdmin, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/debit/:target/:id/:method/:from?", async (req, res) => {
+app.get("/api/debit/:target/:id/:method/:from?", verify, async (req, res) => {
   const stringFrom = req.params.from || 0;
   const target = req.params.target;
   const stringId = req.params.id;
@@ -336,7 +336,7 @@ app.post("/api/debt", verifyAdmin, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/debt/:target/:id/:method/:from?", async (req, res) => {
+app.get("/api/debt/:target/:id/:method/:from?", verify, async (req, res) => {
   const stringFrom = req.params.from || 0;
   const target = req.params.target;
   const stringId = req.params.id;
@@ -427,7 +427,7 @@ app.post("/api/income", async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/income/:target/:id/:method/:from?", async (req, res) => {
+app.get("/api/income/:target/:id/:method/:from?", verify, async (req, res) => {
   const stringFrom = req.params.from || 0;
   const target = req.params.target;
   const stringId = req.params.id;
@@ -512,7 +512,7 @@ app.post("/api/expense", verifyAdmin, async (req, res) => {
     res.status(500).json("Error: server Error!");
   }
 });
-app.get("/api/expense/:target/:id/:method/:from?", async (req, res) => {
+app.get("/api/expense/:target/:id/:method/:from?", verify, async (req, res) => {
   const stringFrom = req.params.from || 0;
   const target = req.params.target;
   const stringId = req.params.id;
